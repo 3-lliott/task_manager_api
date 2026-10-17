@@ -1,0 +1,82 @@
+
+### Get all tasks (expect 200 OK)
+GET http://127.0.0.1:8000/api/v1/tasks
+
+
+### Get task 1 (expect 200 OK)
+GET http://127.0.0.1:8000/api/v1/tasks/1
+
+
+### Get nonexistent task (expect 404 Not Found)
+GET http://127.0.0.1:8000/api/v1/tasks/999
+
+
+### Create a task (expect 201 Created)
+POST http://127.0.0.1:8000/api/v1/tasks
+Content-Type: application/json
+
+{
+    "title": "Learn FastAPI",
+    "description": "Build a Task Manager API",
+    "completed": false
+}
+
+
+### Create a task without a title (expect 422)
+POST http://127.0.0.1:8000/api/v1/tasks
+Content-Type: application/json
+
+{
+    "description": "This request has no title"
+}
+
+
+### Create a task with an empty title (expect 422)
+POST http://127.0.0.1:8000/api/v1/tasks
+Content-Type: application/json
+
+{
+    "title": "   ",
+    "description": "This title contains only spaces"
+}
+
+
+### Update task 1 (expect 200 OK)
+PUT http://127.0.0.1:8000/api/v1/tasks/1
+Content-Type: application/json
+
+{
+    "title": "Learn FastAPI",
+    "description": "Complete my API assignment",
+    "completed": true
+}
+
+
+### Update nonexistent task (expect 404 Not Found)
+PUT http://127.0.0.1:8000/api/v1/tasks/999
+Content-Type: application/json
+
+{
+    "title": "Task that does not exist",
+    "description": "Testing a missing ID",
+    "completed": false
+}
+
+
+### Update with invalid data type (expect 422)
+PUT http://127.0.0.1:8000/api/v1/tasks/1
+Content-Type: application/json
+
+{
+    "title": "Learn FastAPI",
+    "description": "Testing validation",
+    "completed": "not a boolean"
+}
+
+
+### Delete task 2 (expect 200 OK)
+DELETE http://127.0.0.1:8000/api/v1/tasks/2
+
+
+### Delete nonexistent task (expect 404 Not Found)
+DELETE http://127.0.0.1:8000/api/v1/tasks/999
