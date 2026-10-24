@@ -1,56 +1,37 @@
 
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException, Depends
+from sqlalchemy.orm import Session
+
+from database import engine, Base, get_db
+from models import TaskModel
+from schemas import TaskCreate, TaskResponse
+
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
-
-tasks = {
-    1: {
-        "id": 1,
-        "title": "Learn Python",
-        "description": "Learn Python with FreeCodeCamp",
-        "completed": False
-    },
-    2: {
-        "id": 2,
-        "title": "Wash Clothes",
-        "description": "Put the clothes in the washing machine",
-        "completed": False
-    }
-}
-
-
-# Model for data received from the client
-class Task(BaseModel):
-    title: str
-    description: str = ""
-    completed: bool = False
-
-
-# Model for data returned by the API
-class TaskResponse(BaseModel):
-    id: int
-    title: str
-    description: str = ""
-    completed: bool = False
 
 
 # Get all tasks
 @app.get("/api/v1/tasks", response_model=list[TaskResponse])
-def get_all_tasks():
-    return list(tasks.values())
+def get_all_tasks(db: Session = Depends(get_db)):
+    return db.query(TaskModel).all()
 
 
 # Get a task by ID
 @app.get("/api/v1/tasks/{task_id}", response_model=TaskResponse)
-def get_by_id(task_id: int):
-    if task_id not in tasks:
+def get_by_id(task_id: int, db: Session = Depends(get_db)):
+    task = db.query(TaskModel).filter(
+        TaskModel.id == task_id
+    ).first()
+
+    if task is None:
         raise HTTPException(
             status_code=404,
             detail="Task not found"
         )
 
-    return tasks[task_id]
+    return task
 
 
 # Create a task
@@ -59,21 +40,27 @@ def get_by_id(task_id: int):
     response_model=TaskResponse,
     status_code=201
 )
-def create_task(task: Task):
+def create_task(
+    task: TaskCreate,
+    db: Session = Depends(get_db)
+):
     if not task.title.strip():
         raise HTTPException(
             status_code=422,
             detail="Title cannot be empty"
         )
 
-    task_id = max(tasks.keys(), default=0) + 1
+    new_task = TaskModel(
+        title=task.title,
+        description=task.description,
+        completed=task.completed
+    )
 
-    tasks[task_id] = {
-        "id": task_id,
-        **task.model_dump()
-    }
+    db.add(new_task)
+    db.commit()
+    db.refresh(new_task)
 
-    return tasks[task_id]
+    return new_task
 
 
 # Update a task (PUT replaces the entire task)
@@ -82,8 +69,16 @@ def create_task(task: Task):
     response_model=TaskResponse,
     status_code=200
 )
-def update_task(task_id: int, task: Task):
-    if task_id not in tasks:
+def update_task(
+    task_id: int,
+    task: TaskCreate,
+    db: Session = Depends(get_db)
+):
+    existing_task = db.query(TaskModel).filter(
+        TaskModel.id == task_id
+    ).first()
+
+    if existing_task is None:
         raise HTTPException(
             status_code=404,
             detail="Task not found"
@@ -95,12 +90,14 @@ def update_task(task_id: int, task: Task):
             detail="Title cannot be empty"
         )
 
-    tasks[task_id] = {
-        "id": task_id,
-        **task.model_dump()
-    }
+    existing_task.title = task.title
+    existing_task.description = task.description
+    existing_task.completed = task.completed
 
-    return tasks[task_id]
+    db.commit()
+    db.refresh(existing_task)
+
+    return existing_task
 
 
 # Delete a task
@@ -108,13 +105,21 @@ def update_task(task_id: int, task: Task):
     "/api/v1/tasks/{task_id}",
     status_code=200
 )
-def delete_task(task_id: int):
-    if task_id not in tasks:
+def delete_task(
+    task_id: int,
+    db: Session = Depends(get_db)
+):
+    task = db.query(TaskModel).filter(
+        TaskModel.id == task_id
+    ).first()
+
+    if task is None:
         raise HTTPException(
             status_code=404,
             detail="Task not found"
         )
 
-    del tasks[task_id]
+    db.delete(task)
+    db.commit()
 
     return {"message": "Deleted successfully"}
