@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from database import engine, Base, get_db
 from models import TaskModel
-from schemas import TaskCreate, TaskResponse
+from schemas import TaskCreate, TaskResponse, TaskUpdate
 
 
 Base.metadata.create_all(bind=engine)
@@ -52,8 +52,7 @@ def create_task(
 
     new_task = TaskModel(
         title=task.title,
-        description=task.description,
-        completed=task.completed
+        description=task.description
     )
 
     db.add(new_task)
@@ -71,7 +70,7 @@ def create_task(
 )
 def update_task(
     task_id: int,
-    task: TaskCreate,
+    task: TaskUpdate,
     db: Session = Depends(get_db)
 ):
     existing_task = db.query(TaskModel).filter(
@@ -84,20 +83,26 @@ def update_task(
             detail="Task not found"
         )
 
-    if not task.title.strip():
-        raise HTTPException(
-            status_code=422,
-            detail="Title cannot be empty"
-        )
+    update_data = task.model_dump(exclude_unset=True)
 
-    existing_task.title = task.title
-    existing_task.description = task.description
-    existing_task.completed = task.completed
+    if "title" in update_data:
+        if (
+            update_data["title"] is None
+            or not update_data["title"].strip()
+        ):
+            raise HTTPException(
+                status_code=422,
+                detail="Title cannot be empty"
+            )
+
+    for field, value in update_data.items():
+        setattr(existing_task, field, value)
 
     db.commit()
     db.refresh(existing_task)
 
     return existing_task
+
 
 
 # Delete a task
