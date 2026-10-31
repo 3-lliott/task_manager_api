@@ -1,59 +1,195 @@
-
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from database import engine, Base, get_db
-from models import TaskModel
-from schemas import TaskCreate, TaskResponse, TaskUpdate
-
-
-Base.metadata.create_all(bind=engine)
+from database import get_db
+from models import Task, Category
+from schemas import (
+    TaskCreate,
+    TaskUpdate,
+    TaskResponse,
+    CategoryCreate,
+    CategoryResponse
+)
 
 app = FastAPI()
 
 
-# Get all tasks
-@app.get("/api/v1/tasks", response_model=list[TaskResponse])
-def get_all_tasks(db: Session = Depends(get_db)):
-    return db.query(TaskModel).all()
+# CATEGORY ENDPOINTS
 
-
-# Get a task by ID
-@app.get("/api/v1/tasks/{task_id}", response_model=TaskResponse)
-def get_by_id(task_id: int, db: Session = Depends(get_db)):
-    task = db.query(TaskModel).filter(
-        TaskModel.id == task_id
+# Create a category
+@app.post(
+    "/api/v1/categories",
+    response_model=CategoryResponse,
+    status_code=status.HTTP_201_CREATED
+)
+def create_category(
+    category: CategoryCreate,
+    db: Session = Depends(get_db)
+):
+    existing_category = db.query(Category).filter(
+        Category.name == category.name
     ).first()
 
-    if task is None:
+    if existing_category:
         raise HTTPException(
-            status_code=404,
-            detail="Task not found"
+            status_code=400,
+            detail="Category already exists"
         )
 
-    return task
+    new_category = Category(**category.model_dump())
+
+    db.add(new_category)
+    db.commit()
+    db.refresh(new_category)
+
+    return new_category
+
+
+# Get all categories
+@app.get(
+    "/api/v1/categories",
+    response_model=list[CategoryResponse]
+)
+def get_categories(db: Session = Depends(get_db)):
+    return db.query(Category).all()
+
+
+# Get a category by ID
+@app.get(
+    "/api/v1/categories/{category_id}",
+    response_model=CategoryResponse
+)
+def get_category(
+    category_id: int,
+    db: Session = Depends(get_db)
+):
+    category = db.query(Category).filter(
+        Category.id == category_id
+    ).first()
+
+    if not category:
+        raise HTTPException(
+            status_code=404,
+            detail="Category not found"
+        )
+
+    return category
+
+
+# Update a category
+@app.put(
+    "/api/v1/categories/{category_id}",
+    response_model=CategoryResponse
+)
+def update_category(
+    category_id: int,
+    category_data: CategoryCreate,
+    db: Session = Depends(get_db)
+):
+    category = db.query(Category).filter(
+        Category.id == category_id
+    ).first()
+
+    if not category:
+        raise HTTPException(
+            status_code=404,
+            detail="Category not found"
+        )
+
+    duplicate = db.query(Category).filter(
+        Category.name == category_data.name,
+        Category.id != category_id
+    ).first()
+
+    if duplicate:
+        raise HTTPException(
+            status_code=400,
+            detail="Category name already exists"
+        )
+
+    category.name = category_data.name
+    category.description = category_data.description
+
+    db.commit()
+    db.refresh(category)
+
+    return category
+
+
+# Delete a category
+@app.delete("/api/v1/categories/{category_id}")
+def delete_category(
+    category_id: int,
+    db: Session = Depends(get_db)
+):
+    category = db.query(Category).filter(
+        Category.id == category_id
+    ).first()
+
+    if not category:
+        raise HTTPException(
+            status_code=404,
+            detail="Category not found"
+        )
+
+    # Remove the category association from its tasks
+    for task in category.tasks:
+        task.category_id = None
+
+    db.delete(category)
+    db.commit()
+
+    return {"message": "Category deleted successfully"}
+
+
+# Get all tasks belonging to a category
+@app.get(
+    "/api/v1/categories/{category_id}/tasks",
+    response_model=list[TaskResponse]
+)
+def get_category_tasks(
+    category_id: int,
+    db: Session = Depends(get_db)
+):
+    category = db.query(Category).filter(
+        Category.id == category_id
+    ).first()
+
+    if not category:
+        raise HTTPException(
+            status_code=404,
+            detail="Category not found"
+        )
+
+    return category.tasks
+
+
+
+# TASK ENDPOINTS
 
 
 # Create a task
 @app.post(
     "/api/v1/tasks",
     response_model=TaskResponse,
-    status_code=201
+    status_code=status.HTTP_201_CREATED
 )
 def create_task(
     task: TaskCreate,
     db: Session = Depends(get_db)
 ):
-    if not task.title.strip():
-        raise HTTPException(
-            status_code=422,
-            detail="Title cannot be empty"
-        )
+    if task.category_id is not None:
+        category = db.query(Category).filter(
+            Category.id == task.category_id
+        ).first()
 
-    new_task = TaskModel(
-        title=task.title,
-        description=task.description
-    )
+        if not category:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid category ID"
+            )
+
+    new_task = Task(**task.model_dump())
 
     db.add(new_task)
     db.commit()
@@ -62,63 +198,90 @@ def create_task(
     return new_task
 
 
-# Update a task (PUT replaces the entire task)
-@app.put(
-    "/api/v1/tasks/{task_id}",
-    response_model=TaskResponse,
-    status_code=200
+# Get all tasks
+@app.get(
+    "/api/v1/tasks",
+    response_model=list[TaskResponse]
 )
-def update_task(
+def get_all_tasks(db: Session = Depends(get_db)):
+    return db.query(Task).all()
+
+
+# Get a task by ID
+@app.get(
+    "/api/v1/tasks/{task_id}",
+    response_model=TaskResponse
+)
+def get_task(
     task_id: int,
-    task: TaskUpdate,
     db: Session = Depends(get_db)
 ):
-    existing_task = db.query(TaskModel).filter(
-        TaskModel.id == task_id
+    task = db.query(Task).filter(
+        Task.id == task_id
     ).first()
 
-    if existing_task is None:
+    if not task:
         raise HTTPException(
             status_code=404,
             detail="Task not found"
         )
 
-    update_data = task.model_dump(exclude_unset=True)
+    return task
 
-    if "title" in update_data:
-        if (
-            update_data["title"] is None
-            or not update_data["title"].strip()
-        ):
+
+# Update a task
+@app.patch(
+    "/api/v1/tasks/{task_id}",
+    response_model=TaskResponse
+)
+def update_task(
+    task_id: int,
+    task_data: TaskUpdate,
+    db: Session = Depends(get_db)
+):
+    task = db.query(Task).filter(
+        Task.id == task_id
+    ).first()
+
+    if not task:
+        raise HTTPException(
+            status_code=404,
+            detail="Task not found"
+        )
+
+    updates = task_data.model_dump(exclude_unset=True)
+
+    if "category_id" in updates and updates["category_id"] is not None:
+        category = db.query(Category).filter(
+            Category.id == updates["category_id"]
+        ).first()
+
+        if not category:
             raise HTTPException(
-                status_code=422,
-                detail="Title cannot be empty"
+                status_code=400,
+                detail="Invalid category ID"
             )
 
-    for field, value in update_data.items():
-        setattr(existing_task, field, value)
+    for key, value in updates.items():
+        setattr(task, key, value)
 
     db.commit()
-    db.refresh(existing_task)
+    db.refresh(task)
 
-    return existing_task
-
+    return task
 
 
 # Delete a task
-@app.delete(
-    "/api/v1/tasks/{task_id}",
-    status_code=200
-)
+@app.delete("/api/v1/tasks/{task_id}")
 def delete_task(
     task_id: int,
     db: Session = Depends(get_db)
 ):
-    task = db.query(TaskModel).filter(
-        TaskModel.id == task_id
+    task = db.query(Task).filter(
+        Task.id == task_id
     ).first()
 
-    if task is None:
+    if not task:
         raise HTTPException(
             status_code=404,
             detail="Task not found"
@@ -127,4 +290,4 @@ def delete_task(
     db.delete(task)
     db.commit()
 
-    return {"message": "Deleted successfully"}
+    return {"message": "Task deleted successfully"}

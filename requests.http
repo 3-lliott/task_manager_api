@@ -1,82 +1,166 @@
 
-### Get all tasks (expect 200 OK)
-GET http://127.0.0.1:8000/api/v1/tasks
+@baseUrl = http://127.0.0.1:8000/api/v1
 
+### ==========================
+### CATEGORIES
+### ==========================
 
-### Get task 1 (expect 200 OK)
-GET http://127.0.0.1:8000/api/v1/tasks/1
+### 1. Create a category
+POST {{baseUrl}}/categories
+Content-Type: application/json
 
+{
+    "name": "Programming",
+    "description": "Programming related tasks"
+}
 
-### Get nonexistent task (expect 404 Not Found)
-GET http://127.0.0.1:8000/api/v1/tasks/999
+###
 
+### 2. Get all categories
+GET {{baseUrl}}/categories
 
-### Create a task (expect 201 Created)
-POST http://127.0.0.1:8000/api/v1/tasks
+###
+
+### 3. Get a category by ID
+GET {{baseUrl}}/categories/1
+
+###
+
+### 4. Create another category
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{
+    "name": "Academics",
+    "description": "School related tasks"
+}
+
+###
+
+### 5. Update a category
+PUT {{baseUrl}}/categories/1
+Content-Type: application/json
+
+{
+    "name": "Software Development",
+    "description": "Software engineering tasks"
+}
+
+###
+
+### 6. Get tasks belonging to a category
+GET {{baseUrl}}/categories/1/tasks
+
+###
+
+### ==========================
+### TASKS
+### ==========================
+
+### 7. Create a task with a category
+POST {{baseUrl}}/tasks
 Content-Type: application/json
 
 {
     "title": "Learn FastAPI",
-    "description": "Build a Task Manager API",
-    "completed": false
+    "description": "Understand SQLAlchemy relationships",
+    "category_id": 1
 }
 
+###
 
-### Create a task without a title (expect 422)
-POST http://127.0.0.1:8000/api/v1/tasks
+### 8. Create a task without a category
+POST {{baseUrl}}/tasks
 Content-Type: application/json
 
 {
-    "description": "This request has no title"
+    "title": "Read documentation",
+    "description": "Read the FastAPI documentation"
 }
 
+###
 
-### Create a task with an empty title (expect 422)
-POST http://127.0.0.1:8000/api/v1/tasks
+### 9. Get all tasks
+GET {{baseUrl}}/tasks
+
+###
+
+### 10. Get a task by ID
+GET {{baseUrl}}/tasks/1
+
+###
+
+### 11. Update a task
+PATCH {{baseUrl}}/tasks/1
 Content-Type: application/json
 
 {
-    "title": "   ",
-    "description": "This title contains only spaces"
-}
-
-
-### Update task 1 (expect 200 OK)
-PUT http://127.0.0.1:8000/api/v1/tasks/1
-Content-Type: application/json
-
-{
-    "title": "Learn FastAPI",
-    "description": "Complete my API assignment",
     "completed": true
 }
 
+###
 
-### Update nonexistent task (expect 404 Not Found)
-PUT http://127.0.0.1:8000/api/v1/tasks/999
+### 12. Change a task's category
+PATCH {{baseUrl}}/tasks/1
 Content-Type: application/json
 
 {
-    "title": "Task that does not exist",
-    "description": "Testing a missing ID",
-    "completed": false
+    "category_id": 2
 }
 
+###
 
-### Update with invalid data type (expect 422)
-PUT http://127.0.0.1:8000/api/v1/tasks/1
+### 13. Remove a task's category
+PATCH {{baseUrl}}/tasks/1
 Content-Type: application/json
 
 {
-    "title": "Learn FastAPI",
-    "description": "Testing validation",
-    "completed": "not a boolean"
+    "category_id": null
 }
 
+###
 
-### Delete task 2 (expect 200 OK)
-DELETE http://127.0.0.1:8000/api/v1/tasks/2
+### 14. Delete a task
+DELETE {{baseUrl}}/tasks/1
 
+###
 
-### Delete nonexistent task (expect 404 Not Found)
-DELETE http://127.0.0.1:8000/api/v1/tasks/999
+### 15. Delete a category
+DELETE {{baseUrl}}/categories/1
+
+###
+
+### ==========================
+### ERROR HANDLING
+### ==========================
+
+### 16. Get a nonexistent task
+GET {{baseUrl}}/tasks/999
+
+###
+
+### 17. Get a nonexistent category
+GET {{baseUrl}}/categories/999
+
+###
+
+### 18. Create a task with invalid category
+POST {{baseUrl}}/tasks
+Content-Type: application/json
+
+{
+    "title": "Invalid task",
+    "description": "Testing invalid category",
+    "category_id": 999
+}
+
+###
+
+### 19. Create a category with empty name
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{
+    "name": "   ",
+    "description": "Invalid category"
+}

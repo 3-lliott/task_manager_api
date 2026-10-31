@@ -1,32 +1,37 @@
-
-from sqlalchemy import String, Boolean, Integer
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
+from sqlalchemy.orm import relationship
 
 from database import Base
 
 
-class TaskModel(Base):
+class Category(Base):
+    __tablename__ = "categories"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, nullable=False, index=True)
+    description = Column(String, nullable=True)
+
+    tasks = relationship(
+        "Task",
+        back_populates="category"
+    )
+
+
+class Task(Base):
     __tablename__ = "tasks"
 
-    id: Mapped[int] = mapped_column(
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    description = Column(String, default="")
+    completed = Column(Boolean, default=False)
+
+    category_id = Column(
         Integer,
-        primary_key=True,
-        index=True
+        ForeignKey("categories.id"),
+        nullable=True
     )
 
-    title: Mapped[str] = mapped_column(
-        String,
-        nullable=False
-    )
-
-    description: Mapped[str] = mapped_column(
-        String,
-        default="",
-        nullable=False
-    )
-
-    completed: Mapped[bool] = mapped_column(
-        Boolean,
-        default=False,
-        nullable=False
+    category = relationship(
+        "Category",
+        back_populates="tasks"
     )
