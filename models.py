@@ -1,32 +1,43 @@
 
-from sqlalchemy import String, Boolean, Integer
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import String, Boolean, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database import Base
 
 
-class TaskModel(Base):
-    __tablename__ = "tasks"
+class Category(Base):
+    __tablename__ = "categories"
 
-    id: Mapped[int] = mapped_column(
-        Integer,
-        primary_key=True,
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(
+        String,
+        unique=True,
+        nullable=False,
         index=True
     )
-
-    title: Mapped[str] = mapped_column(
+    description: Mapped[str | None] = mapped_column(
         String,
-        nullable=False
+        nullable=True
     )
 
-    description: Mapped[str] = mapped_column(
-        String,
-        default="",
-        nullable=False
+    tasks: Mapped[list["Task"]] = relationship(
+        back_populates="category"
     )
 
-    completed: Mapped[bool] = mapped_column(
-        Boolean,
-        default=False,
-        nullable=False
+
+class Task(Base):
+    __tablename__ = "tasks"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str] = mapped_column(String, default="", nullable=True)
+    completed: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    category_id: Mapped[int | None] = mapped_column(
+        ForeignKey("categories.id"),
+        nullable=True
+    )
+
+    category: Mapped["Category | None"] = relationship(
+        back_populates="tasks"
     )
