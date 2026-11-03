@@ -188,7 +188,7 @@ def create_task(
                 status_code=400,
                 detail="Invalid category ID"
             )
-
+ 
     new_task = Task(**task.model_dump())
 
     db.add(new_task)
