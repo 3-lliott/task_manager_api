@@ -1,3 +1,3 @@
 # TASK MANAGER API
 
-A RESTful API designed to manage user tasks by adding tasks, viewing all tasks, updating a task or deleting a task.
+The API supports task and category management, allowing users to create, retrieve, update, and delete resources while maintaining relationships between tasks and categories.
