@@ -1,20 +1,55 @@
-
 from sqlalchemy import String, Boolean, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database import Base
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(
+        primary_key=True,
+        index=True
+    )
+
+    username: Mapped[str] = mapped_column(
+        String,
+        unique=True,
+        nullable=False,
+        index=True
+    )
+
+    hashed_password: Mapped[str] = mapped_column(
+        String,
+        nullable=False
+    )
+
+    role: Mapped[str] = mapped_column(
+        String,
+        default="user",
+        nullable=False
+    )
+
+    tasks: Mapped[list["Task"]] = relationship(
+        back_populates="owner"
+    )
+
+
 class Category(Base):
     __tablename__ = "categories"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(
+        primary_key=True,
+        index=True
+    )
+
     name: Mapped[str] = mapped_column(
         String,
         unique=True,
         nullable=False,
         index=True
     )
+
     description: Mapped[str | None] = mapped_column(
         String,
         nullable=True
@@ -28,10 +63,26 @@ class Category(Base):
 class Task(Base):
     __tablename__ = "tasks"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    title: Mapped[str] = mapped_column(String, nullable=False)
-    description: Mapped[str] = mapped_column(String, default="", nullable=True)
-    completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    id: Mapped[int] = mapped_column(
+        primary_key=True,
+        index=True
+    )
+
+    title: Mapped[str] = mapped_column(
+        String,
+        nullable=False
+    )
+
+    description: Mapped[str] = mapped_column(
+        String,
+        default="",
+        nullable=True
+    )
+
+    completed: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False
+    )
 
     category_id: Mapped[int | None] = mapped_column(
         ForeignKey("categories.id"),
@@ -39,5 +90,14 @@ class Task(Base):
     )
 
     category: Mapped["Category | None"] = relationship(
+        back_populates="tasks"
+    )
+
+    owner_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"),
+        nullable=False
+    )
+
+    owner: Mapped["User"] = relationship(
         back_populates="tasks"
     )
