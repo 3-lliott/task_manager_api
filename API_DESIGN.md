@@ -1,56 +1,148 @@
-# Task Manager API Design
+# API Design
 
-Base URL: `/api/v1`
+## Base URL
 
-## Categories
+```text
+http://127.0.0.1:8000/api/v1
+```
 
-| Method | Endpoint                        | Description             |
-| ------ | ------------------------------- | ----------------------- |
-| POST   | /categories                     | Create a category       |
-| GET    | /categories                     | Get all categories      |
-| GET    | /categories/{category_id}       | Get a category          |
-| PUT    | /categories/{category_id}       | Update a category       |
-| DELETE | /categories/{category_id}       | Delete a category       |
-| GET    | /categories/{category_id}/tasks | Get tasks in a category |
+## Authentication
 
-## Tasks
+The API uses JWT Bearer authentication.
 
-| Method | Endpoint         | Description             |
-| ------ | ---------------- | ----------------------- |
-| POST   | /tasks           | Create a task           |
-| GET    | /tasks           | Get all tasks           |
-| GET    | /tasks/{task_id} | Get a task              |
-| PATCH  | /tasks/{task_id} | Partially update a task |
-| DELETE | /tasks/{task_id} | Delete a task           |
+- Users register with a username and password.
+- Passwords are hashed before being stored.
+- Login returns an access token.
+- Protected endpoints require an `Authorization: Bearer <token>` header.
+- New accounts receive the `user` role by default.
 
-## Task Fields
+## Endpoints
 
-- id: Automatically generated integer.
-- title: Required string.
-- description: Optional string.
-- completed: Boolean, defaults to false.
-- category_id: Optional foreign key referencing categories.id.
+### Authentication
 
-## Category Fields
+| Method | Endpoint       | Description          | Authentication |
+| ------ | -------------- | -------------------- | -------------- |
+| POST   | `/auth/signup` | Register a user      | Public         |
+| POST   | `/auth/login`  | Login and obtain JWT | Public         |
 
-- id: Automatically generated integer.
-- name: Required unique string.
-- description: Optional string.
+**Signup request:**
 
-## Relationships
+```json
+{
+  "username": "elliot",
+  "password": "password123"
+}
+```
 
-One category can have many tasks.
+**Login:** Accepts form data containing `username` and `password`.
 
-A task can belong to one category or no category.
+**Successful login response:**
 
-Deleting a category removes its association from its tasks.
-The tasks themselves are not deleted.
+```json
+{
+  "access_token": "jwt_token",
+  "token_type": "bearer"
+}
+```
 
-## Validation and Error Handling
+### Tasks
 
-- 201: Resource successfully created.
-- 200: Successful retrieval or update.
-- 200: Successful deletion.
-- 400: Invalid category ID or duplicate category name.
-- 404: Requested task or category does not exist.
-- 422: Invalid request body.
+| Method | Endpoint           | Description             | Authentication |
+| ------ | ------------------ | ----------------------- | -------------- |
+| POST   | `/tasks`           | Create a task           | Required       |
+| GET    | `/tasks`           | Get accessible tasks    | Required       |
+| GET    | `/tasks/{task_id}` | Get a task by ID        | Required       |
+| PATCH  | `/tasks/{task_id}` | Partially update a task | Required       |
+| DELETE | `/tasks/{task_id}` | Delete a task           | Required       |
+
+**Create task request:**
+
+```json
+{
+  "title": "Study FastAPI",
+  "description": "Complete the assignment",
+  "category_id": 1
+}
+```
+
+The task owner is determined from the authenticated user. Clients cannot assign tasks to another user.
+
+### Categories
+
+| Method | Endpoint                          | Description             | Authentication |
+| ------ | --------------------------------- | ----------------------- | -------------- |
+| POST   | `/categories`                     | Create a category       | Public         |
+| GET    | `/categories`                     | Get all categories      | Public         |
+| GET    | `/categories/{category_id}`       | Get a category          | Public         |
+| PUT    | `/categories/{category_id}`       | Update a category       | Public         |
+| DELETE | `/categories/{category_id}`       | Delete a category       | Public         |
+| GET    | `/categories/{category_id}/tasks` | Get tasks in a category | Public         |
+
+A task can exist without a category. Setting `category_id` to `null` removes its category association without deleting the task.
+
+### Admin
+
+| Method | Endpoint       | Description        | Authentication |
+| ------ | -------------- | ------------------ | -------------- |
+| GET    | `/admin/tasks` | Retrieve all tasks | Admin only     |
+
+Normal users receive `403 Forbidden` when attempting to access admin-only functionality.
+
+## Data Models
+
+### User
+
+| Field           | Type    | Description     |
+| --------------- | ------- | --------------- |
+| id              | Integer | Primary key     |
+| username        | String  | Unique username |
+| hashed_password | String  | Hashed password |
+| role            | String  | User role       |
+
+### Task
+
+| Field       | Type           | Description          |
+| ----------- | -------------- | -------------------- |
+| id          | Integer        | Primary key          |
+| title       | String         | Required task title  |
+| description | String         | Task description     |
+| completed   | Boolean        | Completion status    |
+| category_id | Integer / null | Category foreign key |
+| owner_id    | Integer        | User foreign key     |
+
+### Category
+
+| Field       | Type          | Description          |
+| ----------- | ------------- | -------------------- |
+| id          | Integer       | Primary key          |
+| name        | String        | Unique category name |
+| description | String / null | Category description |
+
+## HTTP Status Codes
+
+| Status | Meaning                             |
+| ------ | ----------------------------------- |
+| 200    | Successful request                  |
+| 201    | Resource created                    |
+| 204    | Successful deletion, if applicable  |
+| 400    | Invalid request or related resource |
+| 401    | Missing or invalid authentication   |
+| 403    | Insufficient permissions            |
+| 404    | Resource not found                  |
+| 422    | Request validation error            |
+
+## Database Migrations
+
+Alembic is used to manage database schema changes.
+
+Apply migrations using:
+
+```bash
+alembic upgrade head
+```
+
+Check whether model changes require a migration:
+
+```bash
+alembic check
+```
