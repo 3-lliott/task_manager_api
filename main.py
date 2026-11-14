@@ -1,17 +1,99 @@
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Task, Category
+from models import Task, Category, User
+
 from schemas import (
     TaskCreate,
     TaskUpdate,
     TaskResponse,
     CategoryCreate,
-    CategoryResponse
+    CategoryResponse,
+    UserCreate,
+    UserResponse,
+    Token
 )
 
+from auth import (
+    hash_password,
+    verify_password,
+    create_access_token,
+    get_current_user,
+    require_admin
+)
+
+
 app = FastAPI()
+
+
+# AUTHENTICATION ENDPOINTS
+
+# Sign up
+@app.post(
+    "/api/v1/auth/signup",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED
+)
+def signup(
+    user_data: UserCreate,
+    db: Session = Depends(get_db)
+):
+    existing_user = db.query(User).filter(
+        User.username == user_data.username
+    ).first()
+
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already exists"
+        )
+
+    new_user = User(
+        username=user_data.username,
+        hashed_password=hash_password(user_data.password),
+        role="user"
+    )
+
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return new_user
+
+
+# Login
+@app.post(
+    "/api/v1/auth/login",
+    response_model=Token
+)
+def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(
+        User.username == form_data.username
+    ).first()
+
+    if not user or not verify_password(
+        form_data.password,
+        user.hashed_password
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={
+                "WWW-Authenticate": "Bearer"
+            }
+        )
+
+    access_token = create_access_token(user)
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer"
+    }
 
 
 # CATEGORY ENDPOINTS
@@ -50,7 +132,9 @@ def create_category(
     "/api/v1/categories",
     response_model=list[CategoryResponse]
 )
-def get_categories(db: Session = Depends(get_db)):
+def get_categories(
+    db: Session = Depends(get_db)
+):
     return db.query(Category).all()
 
 
@@ -139,7 +223,9 @@ def delete_category(
     db.delete(category)
     db.commit()
 
-    return {"message": "Category deleted successfully"}
+    return {
+        "message": "Category deleted successfully"
+    }
 
 
 # Get all tasks belonging to a category
@@ -164,9 +250,7 @@ def get_category_tasks(
     return category.tasks
 
 
-
 # TASK ENDPOINTS
-
 
 # Create a task
 @app.post(
@@ -176,7 +260,8 @@ def get_category_tasks(
 )
 def create_task(
     task: TaskCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     if task.category_id is not None:
         category = db.query(Category).filter(
@@ -188,8 +273,11 @@ def create_task(
                 status_code=400,
                 detail="Invalid category ID"
             )
- 
-    new_task = Task(**task.model_dump())
+
+    new_task = Task(
+        **task.model_dump(),
+        owner_id=current_user.id
+    )
 
     db.add(new_task)
     db.commit()
@@ -203,8 +291,18 @@ def create_task(
     "/api/v1/tasks",
     response_model=list[TaskResponse]
 )
-def get_all_tasks(db: Session = Depends(get_db)):
-    return db.query(Task).all()
+def get_all_tasks(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Admins can see all tasks
+    if current_user.role == "admin":
+        return db.query(Task).all()
+
+    # Normal users can only see their own tasks
+    return db.query(Task).filter(
+        Task.owner_id == current_user.id
+    ).all()
 
 
 # Get a task by ID
@@ -214,7 +312,8 @@ def get_all_tasks(db: Session = Depends(get_db)):
 )
 def get_task(
     task_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     task = db.query(Task).filter(
         Task.id == task_id
@@ -224,6 +323,16 @@ def get_task(
         raise HTTPException(
             status_code=404,
             detail="Task not found"
+        )
+
+    # Only the owner or an admin can access the task
+    if (
+        current_user.role != "admin"
+        and task.owner_id != current_user.id
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have access to this task"
         )
 
     return task
@@ -237,7 +346,8 @@ def get_task(
 def update_task(
     task_id: int,
     task_data: TaskUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     task = db.query(Task).filter(
         Task.id == task_id
@@ -249,9 +359,24 @@ def update_task(
             detail="Task not found"
         )
 
-    updates = task_data.model_dump(exclude_unset=True)
+    # Only the owner or an admin can update the task
+    if (
+        current_user.role != "admin"
+        and task.owner_id != current_user.id
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have access to this task"
+        )
 
-    if "category_id" in updates and updates["category_id"] is not None:
+    updates = task_data.model_dump(
+        exclude_unset=True
+    )
+
+    if (
+        "category_id" in updates
+        and updates["category_id"] is not None
+    ):
         category = db.query(Category).filter(
             Category.id == updates["category_id"]
         ).first()
@@ -275,7 +400,8 @@ def update_task(
 @app.delete("/api/v1/tasks/{task_id}")
 def delete_task(
     task_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     task = db.query(Task).filter(
         Task.id == task_id
@@ -287,7 +413,32 @@ def delete_task(
             detail="Task not found"
         )
 
+    # Only the owner or an admin can delete the task
+    if (
+        current_user.role != "admin"
+        and task.owner_id != current_user.id
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have access to this task"
+        )
+
     db.delete(task)
     db.commit()
 
-    return {"message": "Task deleted successfully"}
+    return {
+        "message": "Task deleted successfully"
+    }
+
+# ADMIN ENDPOINTS
+
+# Get all tasks as an administrator
+@app.get(
+    "/api/v1/admin/tasks",
+    response_model=list[TaskResponse]
+)
+def admin_get_tasks(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    return db.query(Task).all()

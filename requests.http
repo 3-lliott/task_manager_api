@@ -1,166 +1,132 @@
 
 @baseUrl = http://127.0.0.1:8000/api/v1
 
-### ==========================
-### CATEGORIES
-### ==========================
+# Replace this with the access_token returned by LOGIN
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwicm9sZSI6InVzZXIiLCJleHAiOjE3OTQwODcwMDR9.aLjKsM5ZusyTf1fD7HpbxHKPyyXwKNdAMhHtqBHVNEM
 
-### 1. Create a category
-POST {{baseUrl}}/categories
+# ==================================================
+# AUTHENTICATION
+# ==================================================
+
+### SIGN UP
+POST {{baseUrl}}/auth/signup
 Content-Type: application/json
 
 {
-    "name": "Programming",
-    "description": "Programming related tasks"
+    "username": "elliot",
+    "password": "password123"
 }
 
-###
+### LOGIN
+POST {{baseUrl}}/auth/login
+Content-Type: application/x-www-form-urlencoded
 
-### 2. Get all categories
-GET {{baseUrl}}/categories
+username=elliot&password=password123
 
-###
 
-### 3. Get a category by ID
-GET {{baseUrl}}/categories/1
+# ==================================================
+# TASK ENDPOINTS
+# All task endpoints require authentication
+# ==================================================
 
-###
-
-### 4. Create another category
-POST {{baseUrl}}/categories
-Content-Type: application/json
-
-{
-    "name": "Academics",
-    "description": "School related tasks"
-}
-
-###
-
-### 5. Update a category
-PUT {{baseUrl}}/categories/1
-Content-Type: application/json
-
-{
-    "name": "Software Development",
-    "description": "Software engineering tasks"
-}
-
-###
-
-### 6. Get tasks belonging to a category
-GET {{baseUrl}}/categories/1/tasks
-
-###
-
-### ==========================
-### TASKS
-### ==========================
-
-### 7. Create a task with a category
+### CREATE TASK
 POST {{baseUrl}}/tasks
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
-    "title": "Learn FastAPI",
-    "description": "Understand SQLAlchemy relationships",
-    "category_id": 1
+    "title": "Study FastAPI",
+    "description": "Complete Week 5 assignment",
+    "category_id": null
 }
 
-###
-
-### 8. Create a task without a category
-POST {{baseUrl}}/tasks
-Content-Type: application/json
-
-{
-    "title": "Read documentation",
-    "description": "Read the FastAPI documentation"
-}
-
-###
-
-### 9. Get all tasks
+### GET ALL MY TASKS
 GET {{baseUrl}}/tasks
+Authorization: Bearer {{token}}
 
-###
-
-### 10. Get a task by ID
+### GET ONE TASK
 GET {{baseUrl}}/tasks/1
+Authorization: Bearer {{token}}
 
-###
-
-### 11. Update a task
+### UPDATE TASK
 PATCH {{baseUrl}}/tasks/1
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
     "completed": true
 }
 
-###
-
-### 12. Change a task's category
+### REMOVE TASK FROM CATEGORY
 PATCH {{baseUrl}}/tasks/1
-Content-Type: application/json
-
-{
-    "category_id": 2
-}
-
-###
-
-### 13. Remove a task's category
-PATCH {{baseUrl}}/tasks/1
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
     "category_id": null
 }
 
-###
-
-### 14. Delete a task
+### DELETE TASK
 DELETE {{baseUrl}}/tasks/1
+Authorization: Bearer {{token}}
 
-###
 
-### 15. Delete a category
-DELETE {{baseUrl}}/categories/1
+# ==================================================
+# CATEGORY ENDPOINTS
+# ==================================================
 
-###
-
-### ==========================
-### ERROR HANDLING
-### ==========================
-
-### 16. Get a nonexistent task
-GET {{baseUrl}}/tasks/999
-
-###
-
-### 17. Get a nonexistent category
-GET {{baseUrl}}/categories/999
-
-###
-
-### 18. Create a task with invalid category
-POST {{baseUrl}}/tasks
-Content-Type: application/json
-
-{
-    "title": "Invalid task",
-    "description": "Testing invalid category",
-    "category_id": 999
-}
-
-###
-
-### 19. Create a category with empty name
+### CREATE CATEGORY
 POST {{baseUrl}}/categories
 Content-Type: application/json
 
 {
-    "name": "   ",
-    "description": "Invalid category"
+    "name": "School",
+    "description": "University-related tasks"
 }
+
+### GET ALL CATEGORIES
+GET {{baseUrl}}/categories
+
+### GET ONE CATEGORY
+GET {{baseUrl}}/categories/1
+
+### UPDATE CATEGORY
+PUT {{baseUrl}}/categories/1
+Content-Type: application/json
+
+{
+    "name": "Programming",
+    "description": "Programming and development tasks"
+}
+
+### GET TASKS IN A CATEGORY
+GET {{baseUrl}}/categories/1/tasks
+
+### DELETE CATEGORY
+DELETE {{baseUrl}}/categories/1
+
+
+# ==================================================
+# ADMIN ENDPOINTS
+# Requires an admin account
+# ==================================================
+
+### GET ALL TASKS (ADMIN ONLY)
+GET {{baseUrl}}/admin/tasks
+Authorization: Bearer {{token}}
+
+
+# ==================================================
+# AUTHENTICATION ERROR TESTS
+# ==================================================
+
+### TEST WITHOUT TOKEN (EXPECTED: 401)
+GET {{baseUrl}}/tasks
+
+### TEST WITH INVALID TOKEN (EXPECTED: 401)
+GET {{baseUrl}}/tasks
+Authorization: Bearer invalid_token
+
+### TEST ADMIN ACCESS AS NORMAL USER (EXPECTED: 403)
+GET {{baseUrl}}/admin/tasks
+Authorization: Bearer {{token}}

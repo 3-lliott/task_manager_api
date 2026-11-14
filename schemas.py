@@ -1,8 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-# CATEGORY SCHEMAS
-
 class CategoryCreate(BaseModel):
     name: str = Field(min_length=1)
     description: str | None = None
@@ -26,7 +24,23 @@ class CategoryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-# TASK SCHEMAS
+class UserCreate(BaseModel):
+    username: str = Field(min_length=3)
+    password: str = Field(min_length=6)
+
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    role: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
 
 class TaskCreate(BaseModel):
     title: str = Field(min_length=1)
@@ -70,6 +84,7 @@ class TaskResponse(BaseModel):
     description: str | None
     completed: bool
     category_id: int | None
+    owner_id: int
     category: CategoryResponse | None = None
 
     model_config = ConfigDict(from_attributes=True)
