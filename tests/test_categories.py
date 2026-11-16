@@ -1,149 +1,168 @@
-def test_create_category_success(client):
+def test_create_category_success(client, admin_headers):
     response = client.post(
         "/api/v1/categories",
         json={
             "name": "Work",
-            "description": "Work tasks"
+            "description": "Work-related tasks"
         },
+        headers=admin_headers,
     )
 
     assert response.status_code == 201
-    assert response.json()["name"] == "Work"
+    data = response.json()
+    assert data["name"] == "Work"
+    assert data["description"] == "Work-related tasks"
 
 
-def test_create_category_duplicate(client):
-    payload = {
-        "name": "Work",
-        "description": "Work tasks"
-    }
-
-    client.post("/api/v1/categories", json=payload)
+def test_create_category_duplicate(client, admin_headers):
+    client.post(
+        "/api/v1/categories",
+        json={"name": "Work"},
+        headers=admin_headers,
+    )
 
     response = client.post(
         "/api/v1/categories",
-        json=payload
+        json={"name": "Work"},
+        headers=admin_headers,
     )
 
     assert response.status_code == 400
 
 
-def test_create_category_invalid_name(client):
+def test_create_category_invalid_name(client, admin_headers):
     response = client.post(
         "/api/v1/categories",
-        json={
-            "name": "   "
-        },
+        json={"name": ""},
+        headers=admin_headers,
     )
 
     assert response.status_code == 422
 
 
-def test_get_categories(client, category):
-    response = client.get("/api/v1/categories")
+def test_get_categories(client, category, auth_headers):
+    response = client.get(
+        "/api/v1/categories",
+        headers=auth_headers,
+    )
 
     assert response.status_code == 200
     assert len(response.json()) == 1
 
 
-def test_get_categories_empty(client):
-    response = client.get("/api/v1/categories")
+def test_get_categories_empty(client, auth_headers):
+    response = client.get(
+        "/api/v1/categories",
+        headers=auth_headers,
+    )
 
     assert response.status_code == 200
     assert response.json() == []
 
 
-def test_get_category(client, category):
+def test_get_category(client, category, auth_headers):
     response = client.get(
-        f"/api/v1/categories/{category['id']}"
+        f"/api/v1/categories/{category['id']}",
+        headers=auth_headers,
     )
 
     assert response.status_code == 200
     assert response.json()["name"] == "Work"
 
 
-def test_get_category_not_found(client):
+def test_get_category_not_found(client, auth_headers):
     response = client.get(
-        "/api/v1/categories/999"
+        "/api/v1/categories/999",
+        headers=auth_headers,
     )
 
     assert response.status_code == 404
 
 
-def test_update_category(client, category):
+def test_update_category(client, category, admin_headers):
     response = client.put(
         f"/api/v1/categories/{category['id']}",
         json={
-            "name": "Personal",
-            "description": "Personal tasks"
+            "name": "Updated Work",
+            "description": "Updated description"
         },
+        headers=admin_headers,
     )
 
     assert response.status_code == 200
-    assert response.json()["name"] == "Personal"
+    assert response.json()["name"] == "Updated Work"
 
 
-def test_update_category_not_found(client):
+def test_update_category_not_found(client, admin_headers):
     response = client.put(
         "/api/v1/categories/999",
         json={
-            "name": "Personal"
+            "name": "Work",
+            "description": "Work-related tasks"
         },
+        headers=admin_headers,
     )
 
     assert response.status_code == 404
 
 
-def test_update_category_duplicate(client, category):
+def test_update_category_duplicate(client, category, admin_headers):
     client.post(
         "/api/v1/categories",
-        json={"name": "Personal"}
+        json={"name": "Personal"},
+        headers=admin_headers,
     )
 
     response = client.put(
         f"/api/v1/categories/{category['id']}",
         json={"name": "Personal"},
+        headers=admin_headers,
     )
 
     assert response.status_code == 400
 
 
-def test_delete_category(client, category):
+def test_delete_category(client, category, admin_headers):
     response = client.delete(
-        f"/api/v1/categories/{category['id']}"
+        f"/api/v1/categories/{category['id']}",
+        headers=admin_headers,
     )
 
     assert response.status_code == 200
 
 
-def test_delete_category_not_found(client):
+def test_delete_category_not_found(client, admin_headers):
     response = client.delete(
-        "/api/v1/categories/999"
+        "/api/v1/categories/999",
+        headers=admin_headers,
     )
 
     assert response.status_code == 404
 
 
-def test_get_category_tasks(client, category, auth_headers):
+def test_get_category_tasks(client, category, auth_headers, admin_headers):
     client.post(
         "/api/v1/tasks",
         json={
-            "title": "Categorized task",
+            "title": "Category task",
             "category_id": category["id"]
         },
         headers=auth_headers,
     )
 
     response = client.get(
-        f"/api/v1/categories/{category['id']}/tasks"
+        f"/api/v1/categories/{category['id']}/tasks",
+        headers=auth_headers,
     )
 
     assert response.status_code == 200
     assert len(response.json()) == 1
 
 
-def test_get_category_tasks_not_found(client):
+def test_get_category_tasks_not_found(client, auth_headers):
     response = client.get(
-        "/api/v1/categories/999/tasks"
+        "/api/v1/categories/999/tasks",
+        headers=auth_headers,
     )
 
     assert response.status_code == 404

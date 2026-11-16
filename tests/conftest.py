@@ -1,6 +1,9 @@
 import os
 
-os.environ.setdefault("SECRET_KEY", "test-secret-key")
+os.environ.setdefault(
+    "SECRET_KEY",
+    "test-secret-key-for-task-manager-tests-32-characters"
+)
 
 import pytest
 from fastapi.testclient import TestClient
@@ -153,13 +156,14 @@ def admin_headers(client, db):
 
 
 @pytest.fixture()
-def category(client):
+def category(client, admin_headers):
     response = client.post(
         "/api/v1/categories",
         json={
             "name": "Work",
             "description": "Work-related tasks"
         },
+        headers=admin_headers,
     )
 
     return response.json()
