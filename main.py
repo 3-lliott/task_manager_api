@@ -98,7 +98,7 @@ def login(
 
 # CATEGORY ENDPOINTS
 
-# Create a category
+# Create a category - Admin only
 @app.post(
     "/api/v1/categories",
     response_model=CategoryResponse,
@@ -106,7 +106,8 @@ def login(
 )
 def create_category(
     category: CategoryCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
 ):
     existing_category = db.query(Category).filter(
         Category.name == category.name
@@ -127,25 +128,27 @@ def create_category(
     return new_category
 
 
-# Get all categories
+# Get all categories - Authenticated users
 @app.get(
     "/api/v1/categories",
     response_model=list[CategoryResponse]
 )
 def get_categories(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     return db.query(Category).all()
 
 
-# Get a category by ID
+# Get a category by ID - Authenticated users
 @app.get(
     "/api/v1/categories/{category_id}",
     response_model=CategoryResponse
 )
 def get_category(
     category_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     category = db.query(Category).filter(
         Category.id == category_id
@@ -160,7 +163,7 @@ def get_category(
     return category
 
 
-# Update a category
+# Update a category - Admin only
 @app.put(
     "/api/v1/categories/{category_id}",
     response_model=CategoryResponse
@@ -168,7 +171,8 @@ def get_category(
 def update_category(
     category_id: int,
     category_data: CategoryCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
 ):
     category = db.query(Category).filter(
         Category.id == category_id
@@ -200,11 +204,12 @@ def update_category(
     return category
 
 
-# Delete a category
+# Delete a category - Admin only
 @app.delete("/api/v1/categories/{category_id}")
 def delete_category(
     category_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
 ):
     category = db.query(Category).filter(
         Category.id == category_id
@@ -228,14 +233,15 @@ def delete_category(
     }
 
 
-# Get all tasks belonging to a category
+# Get tasks belonging to a category - Authenticated users
 @app.get(
     "/api/v1/categories/{category_id}/tasks",
     response_model=list[TaskResponse]
 )
 def get_category_tasks(
     category_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     category = db.query(Category).filter(
         Category.id == category_id
@@ -247,7 +253,15 @@ def get_category_tasks(
             detail="Category not found"
         )
 
-    return category.tasks
+    # Admins can see all tasks in the category
+    if current_user.role == "admin":
+        return category.tasks
+
+    # Normal users can only see their own tasks
+    return [
+        task for task in category.tasks
+        if task.owner_id == current_user.id
+    ]
 
 
 # TASK ENDPOINTS
@@ -430,15 +444,3 @@ def delete_task(
         "message": "Task deleted successfully"
     }
 
-# ADMIN ENDPOINTS
-
-# Get all tasks as an administrator
-@app.get(
-    "/api/v1/admin/tasks",
-    response_model=list[TaskResponse]
-)
-def admin_get_tasks(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
-):
-    return db.query(Task).all()
