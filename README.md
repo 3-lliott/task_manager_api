@@ -1,5 +1,7 @@
 # TASK MANAGER API
 
+[![Tests](https://github.com/3-lliott/task_manager_api/actions/workflows/tests.yml/badge.svg?branch=assignment)](https://github.com/3-lliott/task_manager_api/actions/workflows/tests.yml)
+
 A RESTful API built with FastAPI, SQLAlchemy, and SQLite for managing tasks and categories. It includes JWT authentication, password hashing, and role-based access control.
 
 ## Authentication

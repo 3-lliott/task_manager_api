@@ -1,3 +1,6 @@
+from conftest import create_user
+
+
 def test_admin_get_all_tasks(client, admin_headers, auth_headers):
     client.post(
         "/api/v1/tasks",
@@ -42,3 +45,34 @@ def test_unauthenticated_get_tasks(client):
     response = client.get("/api/v1/tasks")
 
     assert response.status_code == 401
+
+
+def test_admin_can_make_user_admin(client, db, admin_headers):
+    user = create_user(
+        db,
+        username="newuser",
+        password="password123"
+    )
+
+    response = client.patch(
+        f"/api/v1/users/{user.id}/admin",
+        headers=admin_headers
+    )
+
+    assert response.status_code == 200
+    assert response.json()["role"] == "admin"
+
+
+def test_non_admin_cannot_make_user_admin(client, db, auth_headers):
+    user = create_user(
+        db,
+        username="newuser",
+        password="password123"
+    )
+
+    response = client.patch(
+        f"/api/v1/users/{user.id}/admin",
+        headers=auth_headers
+    )
+
+    assert response.status_code == 403
