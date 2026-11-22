@@ -95,6 +95,37 @@ def login(
         "token_type": "bearer"
     }
 
+# Make a user an admin - Admin only
+@app.patch("/api/v1/users/{user_id}/admin")
+def make_user_admin(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Admin access required"
+        )
+
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    user.role= "admin"
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "message": "User is now an admin",
+        "user_id": user.id,
+        "username": user.username,
+        "role": user.role
+    }
 
 # CATEGORY ENDPOINTS
 
